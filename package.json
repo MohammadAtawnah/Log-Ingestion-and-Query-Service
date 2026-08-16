@@ -1,0 +1,33 @@
+{
+  "name": "log-ingestion-service",
+  "version": "1.0.0",
+  "description": "High-performance log ingestion and query service",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "npx ts-node src/index.ts",
+    "test": "jest --forceExit --detectOpenHandles",
+    "test:unit": "jest --testPathPattern=tests/unit --forceExit",
+    "test:integration": "jest --testPathPattern=tests/integration --forceExit --detectOpenHandles",
+    "test:contract": "jest --testPathPattern=tests/contract --forceExit --detectOpenHandles",
+    "test:load": "ts-node scripts/load-test.ts",
+    "migrate": "node dist/db/migrate.js"
+  },
+  "keywords": ["logging", "ingestion", "postgresql", "fastify"],
+  "license": "MIT",
+  "dependencies": {
+    "fastify": "^5.3.3",
+    "pg": "^8.16.0",
+    "dotenv": "^16.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/pg": "^8.11.11",
+    "@types/jest": "^29.5.14",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.3.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
