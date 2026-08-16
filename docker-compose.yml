@@ -1,0 +1,73 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/logservice
+      PORT: "8080"
+      AUTH_ENABLED: "${AUTH_ENABLED:-false}"
+      LOADGEN_API_KEY: "${LOADGEN_API_KEY:-}"
+      RETENTION_DAYS: "${RETENTION_DAYS:-30}"
+    depends_on:
+      db:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: logservice
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./pg-init:/docker-entrypoint-initdb.d
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "effective_cache_size=512MB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "maintenance_work_mem=128MB"
+      - "-c"
+      - "wal_level=minimal"
+      - "-c"
+      - "max_wal_senders=0"
+      - "-c"
+      - "synchronous_commit=off"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "max_wal_size=1GB"
+      - "-c"
+      - "min_wal_size=256MB"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "log_min_duration_statement=1000"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d logservice"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+
+volumes:
+  pgdata:
