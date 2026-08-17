@@ -7,10 +7,12 @@ import { registerQueryRoute } from './routes/query';
 import { registerAggregateRoute } from './routes/aggregate';
 import { createAuthMiddleware } from './middleware/auth';
 
+import { getIngestService, IngestService } from './services/ingest.service';
+
 /**
  * Creates and configures the Fastify application with all routes and middleware.
  */
-export function createServer(pool: Pool, config: AppConfig): FastifyInstance {
+export function createServer(pool: Pool, config: AppConfig, ingestService?: IngestService): FastifyInstance {
   const app = Fastify({
     logger: {
       level: 'warn', // Keep logging minimal for performance
@@ -21,6 +23,8 @@ export function createServer(pool: Pool, config: AppConfig): FastifyInstance {
       ignoreTrailingSlash: true,
     },
   });
+
+  const ingester = ingestService || getIngestService(pool, config.flushIntervalMs, config.flushBatchSize);
 
   // Register error handler for malformed JSON
   app.setErrorHandler((error: { statusCode?: number; code?: string; validation?: unknown; message: string }, _request, reply) => {
@@ -50,7 +54,7 @@ export function createServer(pool: Pool, config: AppConfig): FastifyInstance {
 
   // Register routes
   registerHealthRoute(app, pool);
-  registerIngestRoute(app, pool);
+  registerIngestRoute(app, pool, ingester);
   registerQueryRoute(app, pool);
   registerAggregateRoute(app, pool);
 
