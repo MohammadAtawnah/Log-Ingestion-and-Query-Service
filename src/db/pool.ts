@@ -11,9 +11,9 @@ export function createPool(connectionString: string): Pool {
 
   const config: PoolConfig = {
     connectionString,
-    max: 50,                    // Max concurrent connections
-    idleTimeoutMillis: 10000,   // Close idle connections after 10s
-    connectionTimeoutMillis: 10000, // 10s connection timeout
+    max: 20,                    // Max concurrent connections
+    idleTimeoutMillis: 30000,   // Close idle connections after 30s
+    connectionTimeoutMillis: 5000,
     statement_timeout: 30000,   // 30s query timeout
   };
 

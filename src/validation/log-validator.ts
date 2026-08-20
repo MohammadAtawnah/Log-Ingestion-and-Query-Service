@@ -6,8 +6,7 @@ import { RawLogEntry, ValidLogEntry, RejectedEntry, VALID_LEVELS, LogLevel } fro
  */
 export function validateLogEntry(
   entry: RawLogEntry,
-  index: number,
-  maxTimestampMs: number = Date.now() + 300000
+  index: number
 ): { valid: ValidLogEntry } | { rejected: RejectedEntry } {
   // Validate timestamp
   if (entry.timestamp === undefined || entry.timestamp === null) {
@@ -19,13 +18,13 @@ export function validateLogEntry(
   }
 
   const timestamp = new Date(entry.timestamp);
-  const timeMs = timestamp.getTime();
-  if (isNaN(timeMs)) {
+  if (isNaN(timestamp.getTime())) {
     return { rejected: { index, reason: 'invalid timestamp: must be a valid ISO 8601 timestamp' } };
   }
 
   // Must not be more than 5 minutes in the future
-  if (timeMs > maxTimestampMs) {
+  const fiveMinutesFromNow = new Date(Date.now() + 5 * 60 * 1000);
+  if (timestamp > fiveMinutesFromNow) {
     return { rejected: { index, reason: 'timestamp must not be more than 5 minutes in the future' } };
   }
 
@@ -97,10 +96,9 @@ export function validateBatch(entries: RawLogEntry[]): {
 } {
   const valid: ValidLogEntry[] = [];
   const rejected: RejectedEntry[] = [];
-  const maxTimestampMs = Date.now() + 300000;
 
   for (let i = 0; i < entries.length; i++) {
-    const result = validateLogEntry(entries[i], i, maxTimestampMs);
+    const result = validateLogEntry(entries[i], i);
     if ('valid' in result) {
       valid.push(result.valid);
     } else {

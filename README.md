@@ -153,17 +153,14 @@ CREATE TABLE logs (
 
 | Index | Type | Purpose |
 |---|---|---|
-| `idx_logs_timestamp_id` | B-tree `(timestamp DESC, id DESC)` | Keyset pagination and deterministic reverse chronological ordering |
-| `idx_logs_service_ts` | B-tree `(service, timestamp DESC, id DESC)` | Instant seeks for service-filtered queries |
-| `idx_logs_service_level_ts` | B-tree `(service, level, timestamp DESC, id DESC)` | Index-only & composite seeks for service + level filtered queries |
-| `idx_logs_level_ts` | B-tree `(level, timestamp DESC, id DESC)` | Seeks for level-filtered queries |
-| `idx_logs_attributes` | GIN `(attributes jsonb_path_ops) WITH (fastupdate = on, gin_pending_list_limit = 65536)` | `attr.<key>=<value>` JSONB containment (`@>`) with buffered fastupdate |
-| `idx_logs_message_trgm` | GIN `(message gin_trgm_ops) WITH (fastupdate = on, gin_pending_list_limit = 65536)` | Case-insensitive substring search (`ILIKE '%text%'`) with buffered fastupdate |
+| `idx_logs_timestamp_service_level` | B-tree `(timestamp DESC, service, level)` | Primary query pattern: time-range filter with optional service/level |
+| `idx_logs_attributes` | GIN `(attributes jsonb_path_ops)` | `attr.<key>=<value>` queries using JSONB containment (`@>`) |
+| `idx_logs_message_trgm` | GIN `(message gin_trgm_ops)` | Case-insensitive substring search (`ILIKE '%text%'`) |
 
 **Why these indexes?**
-- Targeted composite B-tree indexes allow Postgres to seek directly to the requested `(service, level)` partition in `< 1ms` without scanning unrelated rows.
-- `jsonb_path_ops` is ~40% smaller than default GIN and supports the `@>` containment operator.
-- `fastupdate = on` and `gin_pending_list_limit = 64MB` buffer GIN index postings in shared memory, preventing synchronous index vacuum stalls during sustained 20,000+ logs/sec ingestion.
+- The composite B-tree index covers the most common query pattern (time-range + service + level) in a single index scan
+- `jsonb_path_ops` is ~40% smaller than default GIN and supports the `@>` containment operator we use
+- `gin_trgm_ops` enables indexed `ILIKE` substring searches instead of sequential scans
 
 ## Attribute Storage Strategy
 
@@ -194,20 +191,11 @@ At 15K+ logs/sec, minimizing write amplification is critical. JSONB keeps insert
 
 ## Ingestion Performance Strategy
 
-1. **Asynchronous In-Memory Batching & Dual Parallel Flusher**:
-   - HTTP `POST /logs` validates batches synchronously in memory (< 0.2ms) and immediately acknowledges `200 OK`.
-   - Dedicated background pipeline drains logs in 2,500-record chunks using parallel database writers.
-2. **Columnar Bulk INSERT with `unnest()`**:
-   - Batches are inserted as parallel columnar arrays in single SQL statements (`$1::timestamptz[], $2::smallint[], $3::text[], $4::text[], $5::jsonb[]`), minimizing query parsing and wire overhead.
-3. **Buffered PostgreSQL GIN Postings**:
-   - `gin_pending_list_limit = 64MB` and `fastupdate = on` prevent synchronous index vacuum stalls during continuous 20,000+ logs/sec ingestion.
-4. **PostgreSQL Write Optimization**:
-   - `synchronous_commit = off`, `wal_level = minimal`, `wal_buffers = 32MB`, `commit_delay = 10000`, `commit_siblings = 5`.
-   - `checkpoint_timeout = 15min`, `max_wal_size = 2GB`, `min_wal_size = 512MB`.
-5. **Connection Pool Isolation & Scaling**:
-   - 50 pooled connections with 10s connection timeout ensuring concurrent `GET /logs` and `GET /logs/aggregate` requests are never starved by background batch writes.
-6. **Fastify Framework**:
-   - High-throughput Node.js HTTP pipeline with minimal overhead.
+1. **Bulk INSERT with `unnest()`**: Inserts entire batch in a single SQL statement using parallel arrays
+2. **`synchronous_commit=off`**: PostgreSQL doesn't wait for WAL flush, 2-3× write throughput
+3. **`wal_level=minimal`**: Minimal WAL logging for maximum write speed
+4. **Connection pooling**: 20 pooled connections to PostgreSQL
+5. **Fastify**: Fastest Node.js HTTP framework with minimal overhead
 
 ## Optional Features
 

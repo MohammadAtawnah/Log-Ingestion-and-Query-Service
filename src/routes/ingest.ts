@@ -1,11 +1,11 @@
 import { FastifyInstance } from 'fastify';
 import { Pool } from 'pg';
-import { ingestLogs, IngestService } from '../services/ingest.service';
+import { ingestLogs } from '../services/ingest.service';
 
 /**
  * Registers the POST /logs endpoint for batch log ingestion.
  */
-export function registerIngestRoute(app: FastifyInstance, pool: Pool, ingestService?: IngestService): void {
+export function registerIngestRoute(app: FastifyInstance, pool: Pool): void {
   app.post('/logs', async (request, reply) => {
     try {
       const body = request.body as Record<string, unknown>;
@@ -26,7 +26,7 @@ export function registerIngestRoute(app: FastifyInstance, pool: Pool, ingestServ
         return;
       }
 
-      const result = await ingestLogs(pool, body.logs, ingestService);
+      const result = await ingestLogs(pool, body.logs);
 
       if (result.accepted === 0) {
         // All entries rejected

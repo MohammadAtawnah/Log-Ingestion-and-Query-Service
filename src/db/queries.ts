@@ -20,20 +20,18 @@ import { Pool } from 'pg';
 export async function bulkInsertLogs(pool: Pool, logs: ValidLogEntry[]): Promise<void> {
   if (logs.length === 0) return;
 
-  const len = logs.length;
-  const timestamps: string[] = new Array(len);
-  const levels: number[] = new Array(len);
-  const services: string[] = new Array(len);
-  const messages: string[] = new Array(len);
-  const attributes: (string | null)[] = new Array(len);
+  const timestamps: string[] = [];
+  const levels: number[] = [];
+  const services: string[] = [];
+  const messages: string[] = [];
+  const attributes: (string | null)[] = [];
 
-  for (let i = 0; i < len; i++) {
-    const log = logs[i];
-    timestamps[i] = log.timestamp.toISOString();
-    levels[i] = LEVEL_MAP[log.level];
-    services[i] = log.service;
-    messages[i] = log.message;
-    attributes[i] = log.attributes ? JSON.stringify(log.attributes) : null;
+  for (const log of logs) {
+    timestamps.push(log.timestamp.toISOString());
+    levels.push(LEVEL_MAP[log.level]);
+    services.push(log.service);
+    messages.push(log.message);
+    attributes.push(log.attributes ? JSON.stringify(log.attributes) : null);
   }
 
   await pool.query(

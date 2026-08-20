@@ -12,31 +12,22 @@ CREATE TABLE IF NOT EXISTS logs (
     PRIMARY KEY (id, timestamp)
 ) PARTITION BY RANGE (timestamp);
 
+-- Index for time-range queries with service/level filtering
+-- This is the primary query pattern: filter by time, then by service/level
+CREATE INDEX idx_logs_timestamp_service_level 
+    ON logs (timestamp DESC, service, level);
+
 -- Index for keyset pagination and ordering
-CREATE INDEX IF NOT EXISTS idx_logs_timestamp_id
+CREATE INDEX idx_logs_timestamp_id
     ON logs (timestamp DESC, id DESC);
 
--- Index for service-filtered queries with keyset ordering
-CREATE INDEX IF NOT EXISTS idx_logs_service_ts
-    ON logs (service, timestamp DESC, id DESC);
-
--- Index for combined service and level filtered queries with keyset ordering
-CREATE INDEX IF NOT EXISTS idx_logs_service_level_ts
-    ON logs (service, level, timestamp DESC, id DESC);
-
--- Index for level-filtered queries with keyset ordering
-CREATE INDEX IF NOT EXISTS idx_logs_level_ts
-    ON logs (level, timestamp DESC, id DESC);
-
 -- GIN index for JSONB attribute containment queries (attr.<key>=<value>)
-CREATE INDEX IF NOT EXISTS idx_logs_attributes 
-    ON logs USING GIN (attributes jsonb_path_ops)
-    WITH (fastupdate = on, gin_pending_list_limit = 65536);
+CREATE INDEX idx_logs_attributes 
+    ON logs USING GIN (attributes jsonb_path_ops);
 
 -- Trigram index for case-insensitive substring search on message (q=<text>)
-CREATE INDEX IF NOT EXISTS idx_logs_message_trgm 
-    ON logs USING GIN (message gin_trgm_ops)
-    WITH (fastupdate = on, gin_pending_list_limit = 65536);
+CREATE INDEX idx_logs_message_trgm 
+    ON logs USING GIN (message gin_trgm_ops);
 
 -- Migrations tracking table
 CREATE TABLE IF NOT EXISTS schema_migrations (

@@ -3,7 +3,6 @@ import { createPool, closePool } from './db/pool';
 import { runMigrations } from './db/migrate';
 import { createServer } from './server';
 import { RetentionService } from './services/retention.service';
-import { getIngestService } from './services/ingest.service';
 import { seedApiKey } from './middleware/auth';
 
 /**
@@ -49,13 +48,12 @@ async function main(): Promise<void> {
   }
 
   // Step 4: Create and start HTTP server
-  const ingestService = getIngestService(pool, config.flushIntervalMs, config.flushBatchSize);
-  const app = createServer(pool, config, ingestService);
+  const app = createServer(pool, config);
 
   await app.listen({ port: config.port, host: '0.0.0.0' });
   console.log(`Server listening on port ${config.port}`);
 
-  // Step 5: Start retention service
+  // Step 4: Start retention service
   const retention = new RetentionService(pool, config.retentionDays);
   retention.start();
 
@@ -64,7 +62,6 @@ async function main(): Promise<void> {
     console.log(`\nReceived ${signal}, shutting down gracefully...`);
     retention.stop();
     await app.close();
-    await ingestService.stop();
     await closePool();
     console.log('Shutdown complete.');
     process.exit(0);
